@@ -1,20 +1,37 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
-const protect = async (req, res, next) => {
+exports.protect = async (req, res, next) => {
     let token;
-    if (req.headers.authorization && req.headers.authorization.startWith("Bearer")) {
-        try {
-            token = req.headers.authorization.split(" ")[1];
-            const decode = jwt.verify(token, process.env.JWT_SECRET);
-            req.user = await User.findById(decode.id).select("-password");
-            next();
-        } catch (err) {
-            res.status(401).json*({  message: "Not authorized" });
-        }
-    } else {
-            res.status(401).json({ message: "No token" });
-    }
-}
 
-module.exports = { protect };
+    // Ambil token dari header Authorization
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+        token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
+        return res.status(401).json({ message: "Tidak ada token, akses ditolak" });
+    }
+
+    try {
+        // Verifikasi token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Ambil data user dari DB (tanpa password)
+        req.user = await User.findById(decoded.id).select("-password");
+
+        next();
+    } catch (error) {
+        res.status(401).json({ message: "Token tidak valid" });
+    }
+};
+
+// Middleware untuk cek role
+exports.authorize = (...roles) => {
+    return (req, res, next) => {
+        if (!roles.includes(req.user.role)) {
+            return res.status(403).json({ message: "Akses ditolak" });
+        }
+        next();
+    };
+};
