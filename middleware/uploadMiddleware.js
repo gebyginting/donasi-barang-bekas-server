@@ -1,10 +1,18 @@
 const multer = require("multer");
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname)
-});
+// Memory storage, file langsung ke RAM
+const storage = multer.memoryStorage();
 
-const upload = multer({ storage });
+// Filter hanya gambar
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+        cb(null, true);
+    } else {
+        cb(new Error("Hanya file gambar yang diizinkan!"), false);
+    }
+};
 
-module.exports = upload;
+// Batas ukuran 2MB
+const limits = { fileSize: 2 * 1024 * 1024 };
+
+module.exports = multer({ storage, fileFilter, limits });

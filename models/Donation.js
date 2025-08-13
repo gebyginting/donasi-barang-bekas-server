@@ -10,6 +10,7 @@ const donationSchema = new mongoose.Schema({
     description: { type: String, required: true },
     amount: { type: Number, required: true },
     imageUrl: { type: String, required: true },
+    imagePublicId: { type: String, required: true },
     location: { type: String, required: true },
     condition: { type: String, enum: ["baru", "bekas"], required: true },
 category: { 
