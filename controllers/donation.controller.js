@@ -34,23 +34,34 @@ const createDonation = async (req, res) => {
 // Get all donations (with pagination)
 const getDonations = async (req, res) => {
     try {
-        // Ambil query params, default page = 1, limit = 10
-        const page = parseInt(req.query.page) || 1;
+const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
-
-        // Hitung skip (berapa data yg dilewai)
         const skip = (page - 1) * limit;
 
+        // Query filter
+        const query = {};
+
+        if (req.query.category) {
+            query.category = req.query.category;
+        }
+        if (req.query.location) {
+            query.location = { $regex: req.query.location, $options: "i" };
+        }
+        if (req.query.condition) {
+            query.condition = req.query.condition;
+        }
+
         // Ambil total data utk hitung total halaman
-        const totalItems = await Donation.countDocuments();
+        const totalItems = await Donation.countDocuments(query);
+
 
         // Ambil data dgn pagination
-        const donations = await Donation.find()
-        .sort({ createdAt: -1 }) // urut terbaru
-        .skip(skip)
-        .limit(limit);
+        const donations = await Donation.find(query)
+            .sort({ createdAt: -1 }) // urut terbaru
+            .skip(skip)
+            .limit(limit);
 
-               res.status(200).json({
+        res.status(200).json({
             page,
             limit,
             totalItems,
@@ -68,6 +79,17 @@ const getMyDonations = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
+
+        // Filter by category, location, condition
+        if (req.query.category) {
+            query.category = req.query.category;
+        }
+        if (req.query.location) {
+            query.location = { $regex: req.query.location, $options: "i" };
+        }
+        if (req.query.condition) {
+            query.condition = req.query.condition;
+        }
 
         const totalItems = await Donation.countDocuments({ donor: req.user.id });
 
@@ -94,7 +116,7 @@ const getDonationById = async (req, res) => {
     try {
         const donation = await Donation.findById(req.params.id)
             .populate("donor", "-password");
-; // Optional: tampilkan info donor
+        ; // Optional: tampilkan info donor
 
         if (!donation) {
             return res.status(404).json({ message: "Donation not found" });
@@ -117,7 +139,6 @@ const getDonationById = async (req, res) => {
 };
 
 
-
 // Update donation
 const updateDonation = async (req, res) => {
     try {
@@ -130,14 +151,26 @@ const updateDonation = async (req, res) => {
             return res.status(404).json({ message: "Donation not found" });
         }
 
-        // Update field yang ada di body
-        if (req.body.name) donation.name = req.body.name;
-        if (req.body.description) donation.description = req.body.description;
+        // Update field dari body
+        const { name, description, amount, location, condition, category } = req.body;
+        if (name) donation.name = name;
+        if (description) donation.description = description;
+        if (amount) donation.amount = amount;
+        if (location) donation.location = location;
+        if (condition) donation.condition = condition;
+        if (category) donation.category = category;
 
-        if (req.file) donation.image = req.file.filename;
+        // Update gambar kalau ada upload baru
+      if (req.file) {
+    donation.imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+}
+
 
         const updated = await donation.save();
-        res.json(updated);
+        res.status(200).json({
+            message: "Donation updated successfully",
+            data: updated
+        });
 
     } catch (error) {
         res.status(500).json({ message: error.message });
