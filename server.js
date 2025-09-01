@@ -15,6 +15,6 @@ app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/donations", require("./routes/donation.routes"));
 app.use("/api/contoh", require("./routes/example.routes"));
 
-app.listen(process.env.PORT, () => {
+app.listen(process.env.PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${process.env.PORT}`);
 });

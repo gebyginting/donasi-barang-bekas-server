@@ -2,36 +2,39 @@ const mongoose = require("mongoose");
 
 const donationSchema = new mongoose.Schema({
     donor: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true
+        id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User", required: true
+        },
+        name: { type: String, required: true },
+        email: { type: String, required: true }
     },
     name: { type: String, required: true },
     description: { type: String, required: true },
     amount: { type: Number, required: true },
-    imageUrl: { type: String, required: true },
-    imagePublicId: { type: String, required: true },
+    imageUrl: [{ type: String }],        // array of image urls
+    imagePublicId: [{ type: String }],   // array of cloudinary public ids
     location: { type: String, required: true },
     condition: { type: String, enum: ["baru", "bekas"], required: true },
-category: { 
-    type: String, 
-    enum: [
-        "pakaian", 
-        "makanan", 
-        "uang", 
-        "elektronik", 
-        "mainan", 
-        "buku", 
-        "alat_tulis", 
-        "perabot", 
-        "perlengkapan_bayi", 
-        "peralatan_ibadah",
-        "peralatan_medis",
-        "lainnya"
-    ], 
-    required: true 
-},
-date: { type: Date, default: Date.now }
+    category: {
+        type: String,
+        enum: [
+            "pakaian",
+            "makanan",
+            "uang",
+            "elektronik",
+            "mainan",
+            "buku",
+            "alat_tulis",
+            "perabot",
+            "perlengkapan_bayi",
+            "peralatan_ibadah",
+            "peralatan_medis",
+            "lainnya"
+        ],
+        required: true
+    },
+    date: { type: Date, default: Date.now }
 
 }, { timestamps: true });
 

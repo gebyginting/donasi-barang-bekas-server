@@ -1,25 +1,32 @@
+const mongoose = require("mongoose");
 const Donation = require("../models/Donation");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../services/cloudinaryService");
 
 // Create donation
 const createDonation = async (req, res) => {
+    let imageUrls = [];
+    let imagePublicIds = [];
     try {
-
-        let imageUrl = null;
-        let imagePublicId = null;
-
-       // Upload hanya sekali
-        if (req.file) {
-            const result = await uploadToCloudinary(req.file.buffer, "donations");
-            imageUrl = result.secure_url;
-            imagePublicId = result.public_id; // simpan id untuk delete kalau gagal
+        // Kalau multiple files diupload
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const result = await uploadToCloudinary(file.buffer, "donations");
+                imageUrls.push(result.secure_url);
+                imagePublicIds.push(result.public_id);
+            }
         }
+
+        const user = req.user;
 
         const donation = await Donation.create({
             ...req.body,
-            donor: req.user._id,
-            imageUrl,
-            imagePublicId
+            donor: {
+                id: user._id,
+                name: user.name,
+                email: user.email
+            },
+            imageUrl: imageUrls,
+            imagePublicId: imagePublicIds
         });
 
         res.status(201).json({
@@ -28,9 +35,11 @@ const createDonation = async (req, res) => {
             data: donation
         });
     } catch (error) {
-        // Hapus gambar di Cloudinary kalau gagal simpan
-        if (imagePublicId) {
-            await cloudinary.uploader.destroy(imagePublicId);
+        // Kalau gagal dan ada imagePublicIds, hapus semua dari Cloudinary
+        if (imagePublicIds.length > 0) {
+            for (const id of imagePublicIds) {
+                await deleteFromCloudinary(id);
+            }
         }
         res.status(500).json({ success: false, message: error.message });
     }
@@ -64,6 +73,38 @@ const getDonations = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// get donations by userId
+const getDonationsByUserId = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Validasi ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid userId",
+            });
+        }
+
+        const donations = await Donation.find({ donor: new mongoose.Types.ObjectId(userId) })
+            .populate("donor", "username email")
+            .sort({ date: -1 });
+
+        if (!donations || donations.length === 0) {
+            return res.status(404).json({ message: userId });
+        }
+        console.log(userId);
+
+        res.status(200).json({
+            success: true,
+            data: donations,
+            total: donations.length,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -136,14 +177,26 @@ const updateDonation = async (req, res) => {
         if (condition) donation.condition = condition;
         if (category) donation.category = category;
 
-        // Jika ada file baru, upload & hapus lama
-        if (req.file) {
-            if (donation.imagePublicId) {
-                await deleteFromCloudinary(donation.imagePublicId);
+        // Jika ada file baru → hapus semua gambar lama & upload yang baru
+        if (req.files && req.files.length > 0) {
+            // hapus semua gambar lama dari Cloudinary
+            if (donation.imagePublicId && donation.imagePublicId.length > 0) {
+                for (const id of donation.imagePublicId) {
+                    await deleteFromCloudinary(id);
+                }
             }
-            const result = await uploadToCloudinary(req.file.buffer, "donations");
-            donation.imageUrl = result.secure_url;
-            donation.imagePublicId = result.public_id;
+
+            let newImageUrls = [];
+            let newImagePublicIds = [];
+
+            for (const file of req.files) {
+                const result = await uploadToCloudinary(file.buffer, "donations");
+                newImageUrls.push(result.secure_url);
+                newImagePublicIds.push(result.public_id);
+            }
+
+            donation.imageUrl = newImageUrls;
+            donation.imagePublicId = newImagePublicIds;
         }
 
         await donation.save();
@@ -163,16 +216,17 @@ const deleteDonation = async (req, res) => {
             return res.status(404).json({ success: false, message: "Donation not found" });
         }
 
-          // Hapus gambar dari Cloudinary
-        if (donation.imagePublicId) {
-            await deleteFromCloudinary(donation.imagePublicId);
-        }
-
         if (donation.donor.toString() !== req.user.id) {
             return res.status(403).json({ success: false, message: "Not authorized to delete this donation" });
         }
 
-        await deleteFromCloudinary(donation.imageUrl);
+        // Hapus semua gambar dari Cloudinary
+        if (donation.imagePublicId && donation.imagePublicId.length > 0) {
+            for (const id of donation.imagePublicId) {
+                await deleteFromCloudinary(id);
+            }
+        }
+
         await donation.deleteOne();
 
         res.status(200).json({ success: true, message: "Donation deleted successfully" });
@@ -181,9 +235,11 @@ const deleteDonation = async (req, res) => {
     }
 };
 
+
 module.exports = {
     createDonation,
     getDonations,
+    getDonationsByUserId,
     getMyDonations,
     getDonationById,
     updateDonation,
