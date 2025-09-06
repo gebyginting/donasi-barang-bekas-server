@@ -53,11 +53,19 @@ const getDonations = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const query = {};
+
+        // Filter by category / location / condition
         if (req.query.category) query.category = req.query.category;
         if (req.query.location) query.location = { $regex: req.query.location, $options: "i" };
         if (req.query.condition) query.condition = req.query.condition;
 
+        // Search by text qurey (name + location + donor)
+        if (req.query.search) {
+            query.$text = { $search: req.query.search };
+        }
+
         const totalItems = await Donation.countDocuments(query);
+
         const donations = await Donation.find(query)
             .sort({ createdAt: -1 })
             .skip(skip)

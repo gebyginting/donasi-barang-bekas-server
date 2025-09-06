@@ -18,11 +18,16 @@ exports.protect = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         // Ambil data user dari DB (tanpa password)
-        req.user = await User.findById(decoded.id).select("-password");
+        // cari user berdasarkan id
+        const user = await User.findById(decoded.id).select("-password");
+        if (!user) {
+            return res.status(401).json({ message: "User tidak ditemukan" });
+        }
 
+        req.user = user;
         next();
     } catch (error) {
-        res.status(401).json({ message: "Token tidak valid" });
+        return res.status(401).json({ message: "Token tidak valid atau expired" });
     }
 };
 

@@ -38,4 +38,11 @@ const donationSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
+// text index untuk search (nama barang, lokasi, dan donatur)
+donationSchema.index({
+    name: "text",
+    location: "text",
+    "donor.name": "text"
+});
+
 module.exports = mongoose.model("Donation", donationSchema);

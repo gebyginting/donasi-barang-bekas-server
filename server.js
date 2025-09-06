@@ -13,6 +13,7 @@ app.use("/uploads", express.static("uploads"));
 
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/donations", require("./routes/donation.routes"));
+app.use("/api/users", require("./routes/user.routes"));
 app.use("/api/contoh", require("./routes/example.routes"));
 
 app.listen(process.env.PORT, '0.0.0.0', () => {
